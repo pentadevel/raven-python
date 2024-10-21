@@ -34,9 +34,23 @@ def urlopen(url, data=None, timeout=defaults.TIMEOUT, ca_certs=None,
                 self.sock = sock
                 self._tunnel()
 
-            self.sock = ssl.wrap_socket(
-                sock, ca_certs=ca_certs, cert_reqs=ssl.CERT_REQUIRED)
+            # Create a secure SSL context
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
+            if ca_certs:
+                context.load_verify_locations(cafile=ca_certs)
+
+            # Ensure that we require certificate verification
+            if verify_ssl:
+                context.verify_mode = ssl.CERT_REQUIRED
+            else:
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_NONE
+
+            # Wrap the socket with SSL/TLS using the context
+            self.sock = context.wrap_socket(sock, server_hostname=self.host)
+
+            # Perform hostname verification if required
             if assert_hostname is not None:
                 match_hostname(self.sock.getpeercert(),
                                self.assert_hostname or self.host)
